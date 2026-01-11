@@ -6,11 +6,12 @@ import (
 
 // Hanlders
 var Handlers = map[string]func([]Value) Value{
-	"PING": ping,
-	"SET":  set,
-	"GET":  get,
-	"HGET": hget,
-	"HSET": hset,
+	"PING":    ping,
+	"SET":     set,
+	"GET":     get,
+	"HGET":    hget,
+	"HSET":    hset,
+	"HGETALL": hgetall,
 }
 
 // Ping Cmd Handler
@@ -60,7 +61,7 @@ func get(args []Value) Value {
 	return Value{typ: "bulk", bulk: value}
 }
 
-// HSET and HGET Cmds
+// HSET, HGET and HGETALL Cmds
 
 var HSETs = map[string]map[string]string{}
 var HSETsMu = sync.RWMutex{}
@@ -101,4 +102,31 @@ func hget(args []Value) Value {
 	}
 
 	return Value{typ: "bulk", bulk: value}
+}
+
+func hgetall(args []Value) Value {
+	if len(args) != 1 {
+		return Value{typ: "error", str: "ERR wrong number of arguments for 'hgetall' command"}
+	}
+
+	hash := args[0].bulk
+
+	HSETsMu.RLock()
+	fields, ok := HSETs[hash]
+	HSETsMu.RUnlock()
+
+	if !ok || len(fields) == 0 {
+		return Value{typ: "array", array: []Value{}}
+	}
+
+	result := make([]Value, 0, len(fields)*2)
+
+	for k, v := range fields {
+		result = append(result,
+			Value{typ: "bulk", bulk: k},
+			Value{typ: "bulk", bulk: v},
+		)
+	}
+
+	return Value{typ: "array", array: result}
 }
